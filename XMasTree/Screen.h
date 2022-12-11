@@ -14,6 +14,7 @@ public:
     CRGB& Pixel(int col, int row) { return MPixels[col][row]; }
     void Clear() { FastLED.clearData(); }
     void DrawGrayscaleImage(const char* img, const CRGB& color=CRGB::Blue);
+    void Show() const { FastLED.show(); }
 
 private:
     CRGB MPixels[NUM_STRIPS][NUM_LEDS];

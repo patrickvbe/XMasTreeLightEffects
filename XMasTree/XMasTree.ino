@@ -3,9 +3,14 @@
 #include "PixelEngine.h"
 
 //#define DEBUG
+//#define USE_NANO
 
-// 500 is app. 10s
-#define AUTOSWITCH_TIMEOUT 500
+const int OFF_EFFECTNR = -1;
+
+// Timing. Currently running at app. 50fps.
+const unsigned long MS_PER_TICK = 20;
+const unsigned long TICKS_PER_SECOND = 1000 / MS_PER_TICK;
+const unsigned long AUTOSWITCH_TIMEOUT = 10 * TICKS_PER_SECOND;
 
 // Global status information shared by the various effects
 Screen screen;
@@ -19,12 +24,27 @@ unsigned long ticker = 0;
 unsigned long nextswitch = AUTOSWITCH_TIMEOUT;  // Block switching with: nextswitch = ticker
 bool neweffect = true;
 int effectnr = 0;
+int number_typed = 0;  // Number (being) typed in with the number keys
+unsigned long last_number_key_tick;  // Tick-time last number key was typed.
 
 void setup() {
+  pinMode(LED_BUILTIN, OUTPUT);
+  Serial.begin(115200); // Also used to communicate UI board.
 #ifdef DEBUG
-  Serial.begin(115200);
   Serial.println("starting");
 #endif
+#ifdef USE_NANO
+  FastLED.addLeds<WS2812B, 2, GRB>(screen.Strip(0), screen.RowCount());
+  FastLED.addLeds<WS2812B, 3, GRB>(screen.Strip(1), screen.RowCount());
+  FastLED.addLeds<WS2812B, 4, GRB>(screen.Strip(2), screen.RowCount());
+  FastLED.addLeds<WS2812B, 5, GRB>(screen.Strip(3), screen.RowCount());
+  FastLED.addLeds<WS2812B, 6, GRB>(screen.Strip(4), screen.RowCount());
+  FastLED.addLeds<WS2812B, 7, GRB>(screen.Strip(5), screen.RowCount());
+  FastLED.addLeds<WS2812B, 8, GRB>(screen.Strip(6), screen.RowCount());
+  FastLED.addLeds<WS2812B, 9, GRB>(screen.Strip(7), screen.RowCount());
+  FastLED.addLeds<WS2812B, 10, GRB>(screen.Strip(8), screen.RowCount());
+  FastLED.addLeds<WS2812B, 11, GRB>(screen.Strip(9), screen.RowCount());
+#else
   FastLED.addLeds<WS2812B, 37, GRB>(screen.Strip(0), screen.RowCount());
   FastLED.addLeds<WS2812B, 36, GRB>(screen.Strip(1), screen.RowCount());
   FastLED.addLeds<WS2812B, 35, GRB>(screen.Strip(2), screen.RowCount());
@@ -35,12 +55,13 @@ void setup() {
   FastLED.addLeds<WS2812B, 30, GRB>(screen.Strip(7), screen.RowCount());
   FastLED.addLeds<WS2812B, 29, GRB>(screen.Strip(8), screen.RowCount());
   FastLED.addLeds<WS2812B, 28, GRB>(screen.Strip(9), screen.RowCount());
-  FastLED.setBrightness(25);
+#endif
+  FastLED.setBrightness(100);
   FastLED.setDither(0);
 }
 
 // Data (images can be (partially) generated with GIMP export functionality)
-const char* rend =
+const char* const rend PROGMEM =
 "\000\000\000\000\000\000\000\000\000\000"
 "\000\377\377\377\377\377\377\001\000\000"
 "\000\377\377\000\000\000\377\377\000\000"
@@ -72,17 +93,73 @@ const char* rend =
 "\000\377\377\000\000\001\377\377\001\000"
 "\000\377\377\377\377\377\377\001\000\000";
 
-void NextEffect()
+void Effect(int new_effectnr)
 {
-  if ( ++effectnr > 4 ) effectnr = 0;
+  effectnr = new_effectnr;
   nextswitch = ticker + AUTOSWITCH_TIMEOUT;
   neweffect = true;
   screen.Clear();
 }
 
+void NextEffect()
+{
+  Effect(effectnr + 1);
+}
+
 void loop() {
+  // We read one key every loop cycle, so effects can react on the key variable
+  // and don't have to read the keys themselves.
+  int key_pressed = -1;
+  if ( Serial.available() ) {
+    key_pressed = Serial.read();    
+    Serial.println(key_pressed, HEX);
+    // if ( digitalRead(LED_BUILTIN) == HIGH) digitalWrite(LED_BUILTIN, LOW);
+    // else digitalWrite(LED_BUILTIN, HIGH);
+  }
+
+  // ======================= Global control keys =======================
+
+  // Let the user type a number to select an effect
+  if ( key_pressed >= 0 && key_pressed <= 9 ) // Numeric keys
+  {
+    number_typed = number_typed * 10 + key_pressed;
+    last_number_key_tick = ticker;
+  }
+  else if ( number_typed != 0 && (key_pressed != -1 || ticker - last_number_key_tick > (2*TICKS_PER_SECOND)) )
+  {
+    Effect(number_typed - 1); // 0 is the 'first' effect so 1 :-)
+    number_typed = 0;
+  }
+
+  if ( key_pressed == 0x0C ) // Power on /off
+  {
+    if ( effectnr == OFF_EFFECTNR ) NextEffect(); // Back on.
+    else {  // Turn the system 'off'.
+      effectnr = OFF_EFFECTNR;
+      screen.Clear();
+      screen.Pixel(0, screen.RowCount() - 1) = CRGB::DarkRed; // Stand-by light :-)
+      screen.Show();
+    }
+  }
+  else if ( key_pressed == 0x54) // Home: Start the normal cyclus
+  {
+    Effect(0);
+  }
+  else if ( key_pressed == 0x28) // >> = Next effect
+  {
+    Effect(effectnr + 1);
+  }
+  else if ( key_pressed == 0x2B) // << = Previous effect
+  {
+    Effect(effectnr - 1);
+  }
+
+  // ======================= Action! =======================
   switch ( effectnr )
   {
+  case OFF_EFFECTNR:
+    nextswitch = ticker; // Blocks switching
+    break;
   case 0:
     if ( neweffect )
     {
@@ -100,26 +177,38 @@ void loop() {
     hue += updown;
     break;
   case 2:
-    // We effectively have a continuous for loop with the 'row' variable.
     if ( neweffect )
     {
-      row = 0;
-    }
-    screen.Pixel(0, row) = CRGB::DarkRed;
-    if ( row > 0) screen.Pixel(0, row-1) = CRGB::Green;
-    if ( row > 1) screen.Pixel(0, row-2) = CRGB::Blue;
-    if ( row > 2) screen.Pixel(0, row-3) = CRGB::Yellow;
-    if ( row > 3) screen.Pixel(0, row-4) = CRGB::Black;
-    for ( int col=1; col < screen.ColCount(); col++)
-    {
-      for ( int row=0; row < NUM_LEDS; row++)
+      pixelengine.Reset();
+      for ( int idx=0; idx < 15; idx++)
       {
-        screen.Pixel(col, row) = screen.Pixel(0,row);
-        screen.Pixel(col, row).nscale8(150);
+        pixelengine.AddPixel(random(Screen::ColCount()),random(Screen::RowCount()),CRGB::OrangeRed, random(100), random(100));
       }
     }
-    if ( ++row >= screen.RowCount() ) row = 0;
+    screen.Clear();
+    pixelengine.ExecuteStep();
+    pixelengine.Draw();
     break;
+    // // We effectively have a continuous for loop with the 'row' variable.
+    // if ( neweffect )
+    // {
+    //   row = 0;
+    // }
+    // screen.Pixel(0, row) = CRGB::DarkRed;
+    // if ( row > 0) screen.Pixel(0, row-1) = CRGB::Green;
+    // if ( row > 1) screen.Pixel(0, row-2) = CRGB::Blue;
+    // if ( row > 2) screen.Pixel(0, row-3) = CRGB::Yellow;
+    // if ( row > 3) screen.Pixel(0, row-4) = CRGB::Black;
+    // for ( int col=1; col < screen.ColCount(); col++)
+    // {
+    //   for ( int row=0; row < NUM_LEDS; row++)
+    //   {
+    //     screen.Pixel(col, row) = screen.Pixel(0,row);
+    //     screen.Pixel(col, row).nscale8(150);
+    //   }
+    // }
+    // if ( ++row >= screen.RowCount() ) row = 0;
+    // break;
   case 3:
     if ( neweffect )
     {
@@ -148,11 +237,33 @@ void loop() {
     pixelengine.ExecuteStep();
     pixelengine.Draw();
     break;
+  case 5:
+    if ( neweffect )
+    {
+      pixelengine.Reset();
+      for ( int idx=0; idx < 15; idx++)
+      {
+        pixelengine.AddPixel(random(Screen::ColCount()),random(Screen::RowCount()),CRGB(CHSV(random(50,255), random(50,255), random(50,255))), random(255), random(255));
+      }
+    }
+    screen.Clear();
+    pixelengine.ExecuteStep();
+    pixelengine.Draw();
+    break;
+  default:
+    // Go back to the start.
+    Effect(0);
   } // switch(effectnr)
 
-  FastLED.delay(20); // Running at app. 50fps.
-
-  // Control effect switching.
-  neweffect = false;
-  if ( ++ticker == nextswitch ) NextEffect();
+  // ======================= Control effect screen + auto switching =======================
+  if ( effectnr == OFF_EFFECTNR )
+  {
+    delay(MS_PER_TICK);
+  }
+  else
+  {
+    FastLED.delay(MS_PER_TICK);
+    neweffect = false;
+    if ( ++ticker == nextswitch ) NextEffect();
+  }
 }
