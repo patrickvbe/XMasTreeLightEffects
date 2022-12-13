@@ -22,7 +22,7 @@ int updown = 1; // Controls direction movement
 // Global status information for the control loop.
 unsigned long ticker = 0;
 unsigned long nextswitch = AUTOSWITCH_TIMEOUT;  // Block switching with: nextswitch = ticker
-bool neweffect = true;
+bool globalneweffect = true;
 int effectnr = 0;
 int number_typed = 0;  // Number (being) typed in with the number keys
 unsigned long last_number_key_tick;  // Tick-time last number key was typed.
@@ -97,7 +97,7 @@ void Effect(int new_effectnr)
 {
   effectnr = new_effectnr;
   nextswitch = ticker + AUTOSWITCH_TIMEOUT;
-  neweffect = true;
+  globalneweffect = true;
   screen.Clear();
 }
 
@@ -125,7 +125,7 @@ void loop() {
     number_typed = number_typed * 10 + key_pressed;
     last_number_key_tick = ticker;
   }
-  else if ( number_typed != 0 && (key_pressed != -1 || ticker - last_number_key_tick > (2*TICKS_PER_SECOND)) )
+  else if ( number_typed != 0 && (key_pressed != -1 || ticker - last_number_key_tick > TICKS_PER_SECOND) )
   {
     Effect(number_typed - 1); // 0 is the 'first' effect so 1 :-)
     number_typed = 0;
@@ -149,10 +149,13 @@ void loop() {
   {
     Effect(effectnr + 1);
   }
-  else if ( key_pressed == 0x2B) // << = Previous effect
+  else if ( effectnr > 0 && key_pressed == 0x2B) // << = Previous effect
   {
     Effect(effectnr - 1);
   }
+
+  bool neweffect = globalneweffect;
+  globalneweffect = false;
 
   // ======================= Action! =======================
   switch ( effectnr )
@@ -189,26 +192,6 @@ void loop() {
     pixelengine.ExecuteStep();
     pixelengine.Draw();
     break;
-    // // We effectively have a continuous for loop with the 'row' variable.
-    // if ( neweffect )
-    // {
-    //   row = 0;
-    // }
-    // screen.Pixel(0, row) = CRGB::DarkRed;
-    // if ( row > 0) screen.Pixel(0, row-1) = CRGB::Green;
-    // if ( row > 1) screen.Pixel(0, row-2) = CRGB::Blue;
-    // if ( row > 2) screen.Pixel(0, row-3) = CRGB::Yellow;
-    // if ( row > 3) screen.Pixel(0, row-4) = CRGB::Black;
-    // for ( int col=1; col < screen.ColCount(); col++)
-    // {
-    //   for ( int row=0; row < NUM_LEDS; row++)
-    //   {
-    //     screen.Pixel(col, row) = screen.Pixel(0,row);
-    //     screen.Pixel(col, row).nscale8(150);
-    //   }
-    // }
-    // if ( ++row >= screen.RowCount() ) row = 0;
-    // break;
   case 3:
     if ( neweffect )
     {
@@ -253,6 +236,7 @@ void loop() {
   default:
     // Go back to the start.
     Effect(0);
+    break;
   } // switch(effectnr)
 
   // ======================= Control effect screen + auto switching =======================
@@ -263,7 +247,6 @@ void loop() {
   else
   {
     FastLED.delay(MS_PER_TICK);
-    neweffect = false;
     if ( ++ticker == nextswitch ) NextEffect();
   }
 }
