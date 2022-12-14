@@ -39,9 +39,11 @@ public:
 
   long MGravity;         // How much does it accelerate (going down) / decelerate (going up) down.
   long MBouncefactor;    // How much speed is left after bouncing.
+  bool MCollisionDetection;
 
 private:
-  void Move(int& pos, int& speed, const int max);
+  void Bounce(int& pos, int& speed);
+  bool Move(int& pos, int& speed, const int max);
 
   Screen& MScreen;
   int MMaxx;            // Pre-calculated limit in units of 1/256.

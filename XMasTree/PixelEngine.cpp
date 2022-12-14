@@ -5,6 +5,7 @@ void PixelEngine::Reset()
   MGravity = 0;
   MBouncefactor = 0;
   MUsedPixels = 0;
+  MCollisionDetection = false;
 }
 
 void PixelEngine::AddPixel(int x, int y, const CRGB& _color, int _xspeed, int _yspeed)
@@ -21,26 +22,27 @@ void PixelEngine::AddPixel(int x, int y, const CRGB& _color, int _xspeed, int _y
   }
 }
 
-void PixelEngine::Move(int& pos, int& speed, const int max)
+void PixelEngine::Bounce(int& pos, int& speed)
+{
+  pos -= speed;
+  if ( MBouncefactor )
+  {
+    if ( speed > 0) { if ( (speed -= MBouncefactor) < 0) speed = 0; }
+    else            { if ( (speed += MBouncefactor) > 0) speed = 0; }
+  }
+  speed = -speed;
+  pos += speed;
+}
+
+bool PixelEngine::Move(int& pos, int& speed, const int max)
 {
   pos += speed;
-  if ( pos > max ) // Speed must be positive now.
+  if ( pos < 0x80 || pos > max )
   {
-    pos -= speed;
-    if ( (speed -= MBouncefactor) < 0) speed = 0;
-    speed = -speed;
-    pos += speed;
+    Bounce(pos, speed);
+    return true;
   }
-  if ( pos < 0x80 )  // Speed must be negative now.
-  {
-    pos -= speed;
-    if ( (speed += MBouncefactor) > 0 ) speed = 0;
-    speed = -speed;
-    pos += speed;
-  }
-  // Some safety guards.
-  if ( pos < 0x80) pos = 0x80;
-  if ( pos > max) pos = max;
+  return false;
 }
 
 void PixelEngine::ExecuteStep()
@@ -50,8 +52,22 @@ void PixelEngine::ExecuteStep()
     PEPixel& pixel = MPixels[pixidx];
     if ( pixel.move )
     {
-      Move(pixel.xpos, pixel.xspeed, MMaxx);
-      Move(pixel.ypos, pixel.yspeed, MMaxy);
+      int prevx = pixel.xpos;
+      int prevy = pixel.ypos;
+      bool xbounced = Move(pixel.xpos, pixel.xspeed, MMaxx);
+      bool ybounced = Move(pixel.ypos, pixel.yspeed, MMaxy);
+      if ( MCollisionDetection )
+      {
+        int xpos = pixel.xpos >> 8;
+        int ypos = pixel.ypos >> 8;
+        if (!MScreen.Pixel(xpos, ypos))  // collision
+        { // Check which movement contributed to the colission.
+          prevx >>= 8;
+          prevy >>= 8;
+          if ( !xbounced && prevx != xpos && MScreen.Pixel(prevx, ypos)) Bounce(pixel.xpos, pixel.xspeed);
+          if ( !ybounced && prevy != ypos && MScreen.Pixel(xpos, prevy)) Bounce(pixel.ypos, pixel.yspeed);
+        }
+      }
       pixel.yspeed -= MGravity; // We have a simple liniair gravity :-)
     }
   }

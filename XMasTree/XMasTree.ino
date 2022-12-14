@@ -198,8 +198,8 @@ void loop() {
         pixelengine.AddPixel(random(Screen::ColCount()),random(Screen::RowCount()),CRGB(CHSV(random(50,255), random(50,255), random(50,255))), random(255), random(255));
       }
     }
-    screen.Clear();
     pixelengine.ExecuteStep();
+    screen.Clear();
     pixelengine.Draw();
     break;
   case 6:
@@ -227,6 +227,21 @@ void loop() {
       }
       next_event_ticks = ticker + TICKS_PER_SECOND / 2;
     }
+    break;
+  case 7:
+    if ( neweffect )
+    {
+      pixelengine.Reset();
+      pixelengine.MCollisionDetection = true;
+      for ( int idx=0; idx < 15; idx++)
+      {
+        pixelengine.AddPixel(random(Screen::ColCount()),random(Screen::RowCount()),CRGB::OrangeRed, random(50), random(50));
+      }
+    }
+    // First execute step then clear screen. Te current screen is used to detect collisions.
+    pixelengine.ExecuteStep();
+    screen.Clear();
+    pixelengine.Draw();
     break;
   default:
     // Go back to the start.
