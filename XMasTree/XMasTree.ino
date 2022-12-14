@@ -1,6 +1,7 @@
 #include <FastLED.h>
 
 #include "PixelEngine.h"
+#include "Images.h"
 
 //#define DEBUG
 //#define USE_NANO
@@ -15,9 +16,10 @@ const unsigned long AUTOSWITCH_TIMEOUT = 10 * TICKS_PER_SECOND;
 // Global status information shared by the various effects
 Screen screen;
 PixelEngine pixelengine(screen);
-int row;
 int hue;
 int updown = 1; // Controls direction movement
+unsigned long next_event_ticks;
+char state;
 
 // Global status information for the control loop.
 unsigned long ticker = 0;
@@ -59,39 +61,6 @@ void setup() {
   FastLED.setBrightness(100);
   FastLED.setDither(0);
 }
-
-// Data (images can be (partially) generated with GIMP export functionality)
-const char* const rend PROGMEM =
-"\000\000\000\000\000\000\000\000\000\000"
-"\000\377\377\377\377\377\377\001\000\000"
-"\000\377\377\000\000\000\377\377\000\000"
-"\000\377\377\000\000\000\377\377\000\000"
-"\000\377\377\000\000\000\377\377\000\000"
-"\000\377\377\377\377\377\377\001\000\000"
-"\000\377\377\001\377\377\001\000\000\000"
-"\000\377\377\000\001\377\377\001\000\000"
-"\000\377\377\000\000\001\377\377\001\000"
-"\000\377\377\000\000\000\001\377\377\000"
-"\000\000\000\000\000\000\000\000\000\000"
-"\000\001\377\377\377\001\000\000\000\000"
-"\000\377\377\000\377\377\000\000\000\000"
-"\000\377\377\000\377\377\000\000\000\000"
-"\000\377\377\000\377\377\000\000\000\000"
-"\000\001\377\377\377\001\000\377\377\000"
-"\000\377\377\001\377\377\001\377\001\000"
-"\000\377\377\000\001\377\377\001\000\000"
-"\000\377\377\000\000\001\377\377\000\000"
-"\000\001\377\377\377\377\001\377\377\000"
-"\000\000\000\000\000\000\000\000\000\000"
-"\000\377\377\377\377\377\377\001\000\000"
-"\000\377\377\000\000\001\377\377\001\000"
-"\000\377\377\000\000\000\001\377\377\000"
-"\000\377\377\000\000\000\000\377\377\000"
-"\000\377\377\000\000\000\000\377\377\000"
-"\000\377\377\000\000\000\000\377\377\000"
-"\000\377\377\000\000\000\001\377\377\000"
-"\000\377\377\000\000\001\377\377\001\000"
-"\000\377\377\377\377\377\377\001\000\000";
 
 void Effect(int new_effectnr)
 {
@@ -232,6 +201,32 @@ void loop() {
     screen.Clear();
     pixelengine.ExecuteStep();
     pixelengine.Draw();
+    break;
+  case 6:
+    if ( neweffect )
+    {
+      next_event_ticks = ticker;
+      state = 'r';
+    }
+    if ( next_event_ticks == ticker )
+    {
+      switch(state)
+      {
+      case 'r':
+        screen.DrawGrayscaleImage(only_r, CRGB::OrangeRed, 5);
+        state = '&';
+        break;
+      case '&':
+        screen.DrawGrayscaleImage(only_and, CRGB::OrangeRed, 5);
+        state = 'd';
+        break;
+      case 'd':
+        screen.DrawGrayscaleImage(only_d, CRGB::OrangeRed, 5);
+        state = 'r';
+        break;
+      }
+      next_event_ticks = ticker + TICKS_PER_SECOND / 2;
+    }
     break;
   default:
     // Go back to the start.

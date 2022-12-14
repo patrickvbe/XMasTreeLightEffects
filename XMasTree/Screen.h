@@ -13,7 +13,7 @@ public:
     CRGB* Strip(int col) {return MPixels[col]; }
     CRGB& Pixel(int col, int row) { return MPixels[col][row]; }
     void Clear() { FastLED.clearData(); }
-    void DrawGrayscaleImage(const char* img, const CRGB& color=CRGB::Blue);
+    void DrawGrayscaleImage(const char* img, const CRGB& color=CRGB::Blue, int row=0); // row is counting from the top here!
     void Show() const { FastLED.show(); }
 
 private:
