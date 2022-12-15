@@ -31,8 +31,9 @@ unsigned long last_number_key_tick;  // Tick-time last number key was typed.
 
 void setup() {
   pinMode(LED_BUILTIN, OUTPUT);
-  Serial.begin(115200); // Also used to communicate UI board.
+  Serial1.begin(115200); // Communication with the UI board.
 #ifdef DEBUG
+  Serial.begin(115200);
   Serial.println("starting");
 #endif
 #ifdef USE_NANO
@@ -79,8 +80,8 @@ void loop() {
   // We read one key every loop cycle, so effects can react on the key variable
   // and don't have to read the keys themselves.
   int key_pressed = -1;
-  if ( Serial.available() ) {
-    key_pressed = Serial.read();    
+  if ( Serial1.available() ) {
+    key_pressed = Serial1.read();    
     Serial.println(key_pressed, HEX);
     // if ( digitalRead(LED_BUILTIN) == HIGH) digitalWrite(LED_BUILTIN, LOW);
     // else digitalWrite(LED_BUILTIN, HIGH);
@@ -157,8 +158,8 @@ void loop() {
         pixelengine.AddPixel(random(Screen::ColCount()),random(Screen::RowCount()),CRGB::OrangeRed, random(100), random(100));
       }
     }
-    screen.Clear();
     pixelengine.ExecuteStep();
+    screen.Clear();
     pixelengine.Draw();
     break;
   case 3:
@@ -172,8 +173,8 @@ void loop() {
       pixelengine.MGravity = 5;
       nextswitch = ticker + 1000;  // We have our own timeout.
     }
-    screen.Clear();
     pixelengine.ExecuteStep();
+    screen.Clear();
     pixelengine.Draw();
     break;
   case 4:
@@ -185,8 +186,8 @@ void loop() {
         pixelengine.AddPixel(random(Screen::ColCount()),random(Screen::RowCount()),CRGB::OrangeRed, random(255), random(255));
       }
     }
-    screen.Clear();
     pixelengine.ExecuteStep();
+    screen.Clear();
     pixelengine.Draw();
     break;
   case 5:
@@ -213,14 +214,17 @@ void loop() {
       switch(state)
       {
       case 'r':
+        screen.Clear();
         screen.DrawGrayscaleImage(only_r, CRGB::OrangeRed, 5);
         state = '&';
         break;
       case '&':
+        screen.Clear();
         screen.DrawGrayscaleImage(only_and, CRGB::OrangeRed, 5);
         state = 'd';
         break;
       case 'd':
+        screen.Clear();
         screen.DrawGrayscaleImage(only_d, CRGB::OrangeRed, 5);
         state = 'r';
         break;

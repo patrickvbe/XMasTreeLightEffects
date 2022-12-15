@@ -36,13 +36,17 @@ void PixelEngine::Bounce(int& pos, int& speed)
 
 bool PixelEngine::Move(int& pos, int& speed, const int max)
 {
+  bool bounced = false;
   pos += speed;
   if ( pos < 0x80 || pos > max )
   {
     Bounce(pos, speed);
-    return true;
+    bounced = true;
   }
-  return false;
+  // Some safety guards.
+  if ( pos < 0x80) pos = 0x80;
+  if ( pos > max) pos = max;
+  return bounced;
 }
 
 void PixelEngine::ExecuteStep()
@@ -60,12 +64,13 @@ void PixelEngine::ExecuteStep()
       {
         int xpos = pixel.xpos >> 8;
         int ypos = pixel.ypos >> 8;
-        if (!MScreen.Pixel(xpos, ypos))  // collision
+        prevx >>= 8;
+        prevy >>= 8;
+        if ( (prevx != xpos || prevy != ypos) && MScreen.Pixel(xpos, ypos))  // collision
         { // Check which movement contributed to the colission.
-          prevx >>= 8;
-          prevy >>= 8;
-          if ( !xbounced && prevx != xpos && MScreen.Pixel(prevx, ypos)) Bounce(pixel.xpos, pixel.xspeed);
-          if ( !ybounced && prevy != ypos && MScreen.Pixel(xpos, prevy)) Bounce(pixel.ypos, pixel.yspeed);
+          pixel.color = CRGB::Red;
+          if ( !xbounced && prevx != xpos && !MScreen.Pixel(prevx, ypos)) Bounce(pixel.xpos, pixel.xspeed);
+          if ( !ybounced && prevy != ypos && !MScreen.Pixel(xpos, prevy)) Bounce(pixel.ypos, pixel.yspeed);
         }
       }
       pixel.yspeed -= MGravity; // We have a simple liniair gravity :-)
