@@ -41,13 +41,16 @@ public:
   long MBouncefactor;    // How much speed is left after bouncing.
   bool MCollisionDetection;
 
+  PEPixel MPixels[MAX_PIXELS];
+  int MMaxx;            // Pre-calculated limit in units of 1/256.
+  int MMaxy;            // Pre-calculated limit in units of 1/256.
+  const int MMinx = 0x80;
+  const int MMiny = 0x80;
+
 private:
   void Bounce(int& pos, int& speed);
   bool Move(int& pos, int& speed, const int max);
 
   Screen& MScreen;
-  int MMaxx;            // Pre-calculated limit in units of 1/256.
-  int MMaxy;            // Pre-calculated limit in units of 1/256.
   int MUsedPixels;      // Number of pixels in MPixels which are actually valid / used.
-  PEPixel MPixels[MAX_PIXELS];
 };

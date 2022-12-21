@@ -25,9 +25,23 @@ char state;
 unsigned long ticker = 0;
 unsigned long nextswitch = AUTOSWITCH_TIMEOUT;  // Block switching with: nextswitch = ticker
 bool globalneweffect = true;
-int effectnr = 0;
+int effectnr = 9;
 int number_typed = 0;  // Number (being) typed in with the number keys
 unsigned long last_number_key_tick;  // Tick-time last number key was typed.
+CRGB colorcorrection;
+
+// Pong!
+const int barsize = 3;
+const int autospeed = 10;
+const int autoplayer_stupid = 10;
+const int startspeed = 40;
+const int speedincrease = 30; 
+int position_bar1;
+int position_bar2;
+int autospeed_countdown;
+int speedincreasecount;
+int autodirection = 1;
+int gameovercount;
 
 void setup() {
   pinMode(LED_BUILTIN, OUTPUT);
@@ -122,6 +136,18 @@ void loop() {
   else if ( effectnr > 0 && key_pressed == 0x2B) // << = Previous effect
   {
     Effect(effectnr - 1);
+  }
+  else if ( key_pressed == 0x10)
+  {
+    colorcorrection += CRGB(10,0,0);
+    FastLED.setCorrection(colorcorrection);
+    Serial.print(colorcorrection.red);
+  }
+  else if ( key_pressed == 0x11)
+  {
+    colorcorrection -= CRGB(10,0,0);
+    FastLED.setCorrection(colorcorrection);
+    Serial.print(colorcorrection.red);
   }
 
   bool neweffect = globalneweffect;
@@ -246,6 +272,88 @@ void loop() {
     pixelengine.ExecuteStep();
     screen.Clear();
     pixelengine.Draw();
+    break;
+  case 8:
+    if ( neweffect )
+    {
+      pixelengine.Reset();
+      pixelengine.MCollisionDetection = true;
+      for ( int idx=0; idx < 2; idx++)
+      {
+        pixelengine.AddPixel(random(Screen::ColCount()),random(Screen::RowCount()),CRGB::OrangeRed, random(50,100), random(50,100));
+      }
+      nextswitch = ticker + 2000;  // We have our own timeout.
+    }
+    // First execute step then clear screen. Te current screen is used to detect collisions.
+    pixelengine.ExecuteStep();
+    screen.Clear();
+    screen.DrawGrayscaleImage(blocks, CRGB::White, 12);
+    pixelengine.Draw();
+    break;
+  case 9:
+    if ( neweffect )
+    {
+      screen.DrawImage(smiley,4);
+    }
+    break;
+  case 10:
+    // Pong!
+    if ( neweffect || (gameovercount != 0 && --gameovercount == 0 ) )
+    {
+      position_bar1 = 4;
+      position_bar2 = 4;
+      autospeed_countdown = autospeed;
+      speedincreasecount = speedincrease;
+      gameovercount = 0;
+      pixelengine.Reset();
+      pixelengine.MCollisionDetection = true;
+      pixelengine.AddPixel(5, 15, CRGB::DarkRed, 10, random(2) > 0 ? startspeed : -startspeed);
+    }
+    if ( gameovercount == 0 )
+    {
+      pixelengine.ExecuteStep();
+      screen.Clear();
+      for ( int x=0; x < barsize; x++ )
+      {
+        screen.Pixel(position_bar2 + x, screen.RowCount() - 1) = CRGB::White;
+        screen.Pixel(position_bar1 + x, 0) = CRGB::White;
+      }
+      pixelengine.Draw();
+      if ( pixelengine.MPixels[0].ypos < (1<<8) || pixelengine.MPixels[0].ypos >= ((screen.RowCount() - 1) << 8) )
+      {
+        gameovercount = 50;
+        for ( int row = 0; row < screen.RowCount() ; row++) for ( int col = 0; col < screen.ColCount(); col++)
+        {
+          if ( !screen.Pixel(col, row) ) screen.Pixel(col, row) = CRGB::DarkOrange;
+        }
+      }
+      if ( --autospeed_countdown == 0 )
+      {
+        autospeed_countdown = autospeed;
+        autodirection = ( position_bar1 + 1 > pixelengine.MPixels[0].xpos >> 8 ) ? -1 : +1;
+        if ( random(autoplayer_stupid) < 1 ) autodirection = - autodirection; // Randomly move in the wrong direction.
+        position_bar1 += autodirection;
+        if ( position_bar1 < 0 ) position_bar1 = 0;
+        if ( position_bar1 > screen.ColCount() - barsize ) position_bar1 = screen.ColCount() - barsize;
+      }
+      if ( speedincreasecount-- == 0)
+      {
+        speedincreasecount = speedincrease;
+        if ( pixelengine.MPixels[0].yspeed < 255 ) pixelengine.MPixels[0].yspeed++;
+      }
+      if ( key_pressed != -1 )
+      {
+        nextswitch = ticker + AUTOSWITCH_TIMEOUT; // Prevents switching while keys are pressed = playing.
+        if ( key_pressed == 0x5A)
+        {
+          if ( position_bar2 > 0 ) position_bar2--;
+        }
+        if ( key_pressed == 0x5B)
+        {
+          if ( position_bar2 < screen.ColCount() - barsize) position_bar2++;
+        }
+      }
+    }
     break;
   default:
     // Go back to the start.

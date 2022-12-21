@@ -6,6 +6,7 @@ void PixelEngine::Reset()
   MBouncefactor = 0;
   MUsedPixels = 0;
   MCollisionDetection = false;
+  MScreen.Clear();
 }
 
 void PixelEngine::AddPixel(int x, int y, const CRGB& _color, int _xspeed, int _yspeed)
@@ -68,9 +69,13 @@ void PixelEngine::ExecuteStep()
         prevy >>= 8;
         if ( (prevx != xpos || prevy != ypos) && MScreen.Pixel(xpos, ypos))  // collision
         { // Check which movement contributed to the colission.
-          pixel.color = CRGB::Red;
-          if ( !xbounced && prevx != xpos && !MScreen.Pixel(prevx, ypos)) Bounce(pixel.xpos, pixel.xspeed);
-          if ( !ybounced && prevy != ypos && !MScreen.Pixel(xpos, prevy)) Bounce(pixel.ypos, pixel.yspeed);
+          if      ( !xbounced && prevy == ypos ) Bounce(pixel.xpos, pixel.xspeed);
+          else if ( !ybounced && prevx == xpos ) Bounce(pixel.ypos, pixel.yspeed);
+          else
+          {
+            Bounce(pixel.xpos, pixel.xspeed);
+            Bounce(pixel.ypos, pixel.yspeed);
+          }
         }
       }
       pixel.yspeed -= MGravity; // We have a simple liniair gravity :-)
